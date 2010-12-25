@@ -82,7 +82,7 @@ static int pam_restauth_check(const char *base_url, const char *user,
   curl_status += curl_easy_getinfo(session, CURLINFO_RESPONSE_CODE,
                  &curl_http_code);
 
-  if (curl_status == CURLE_OK && curl_http_code == 200)
+  if (curl_status == CURLE_OK && curl_http_code >= 200 && curl_http_code < 300)
     ret = 0; /* success */
   else
     ret = -1; /* failure */
