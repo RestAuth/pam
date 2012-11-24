@@ -1,0 +1,3 @@
+[submodule "restauth"]
+	path = restauth
+	url = https://git.fsinf.at/restauth/c-library.git
