@@ -1,3 +1,20 @@
+/**
+ * Copyright 2012 Mihai Ghete <viper@restauth.net>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include <sys/param.h>
 
 #include <pwd.h>
@@ -8,8 +25,11 @@
 
 #include <security/pam_modules.h>
 #include <security/pam_appl.h>
+#include <security/pam_ext.h>
 
 #include <curl/curl.h>
+
+#include <syslog.h>
 
 #ifndef PAM_EXTERN
 #define PAM_EXTERN
@@ -46,13 +66,20 @@ static char* url_escape(const char *str)
 }
 
 /* RESTAuth request dispatcher */
-static int pam_restauth_check(const char *base_url, const char *user, 
-                              const char *password) {
+static int pam_restauth_check(
+		const char *base_url,
+		const char *service_user,
+		const char *service_password,
+		const char *group,
+		int validate_certificate,
+		const char *user,
+        const char *password) {
+
   /* allocate structures */
   CURL *session = curl_easy_init();
   char *escaped_user = url_escape(user);
   char *escaped_password = url_escape(password);
-  char *url = malloc(strlen(base_url)+strlen("/users/")+strlen(user)*3+1);
+  char *url = malloc(strlen(base_url)+strlen("/users/")+strlen(user)*3+1+1);
   char *post_data = malloc(strlen("password=")+strlen(password)*3+1);
   int ret = -1;
 
@@ -60,7 +87,7 @@ static int pam_restauth_check(const char *base_url, const char *user,
     goto cleanup;
 
   /* create URL: <base url>/users/<user>/ */
-  sprintf(url, "%s%susers/%s/", base_url, 
+  sprintf(url, "%s%susers/%s/", base_url,
            *(base_url+strlen(base_url)-1) == '/' ? "":"/",
            escaped_user);
 
@@ -70,8 +97,13 @@ static int pam_restauth_check(const char *base_url, const char *user,
   /* set up CURL request */
   curl_easy_setopt(session, CURLOPT_NETRC, CURL_NETRC_IGNORED);
   curl_easy_setopt(session, CURLOPT_NOSIGNAL, 1L);
-  curl_easy_setopt(session, CURLOPT_FAILONERROR, 1L);
   
+  curl_easy_setopt(session, CURLOPT_USERNAME, service_user);
+  curl_easy_setopt(session, CURLOPT_PASSWORD, service_password);
+
+  if (!validate_certificate)
+	  curl_easy_setopt(session, CURLOPT_SSL_VERIFYPEER, 0);
+
   curl_easy_setopt(session, CURLOPT_POST, 1L);
   curl_easy_setopt(session, CURLOPT_POSTFIELDS, post_data);
   
@@ -81,6 +113,10 @@ static int pam_restauth_check(const char *base_url, const char *user,
   int curl_http_code, curl_status = curl_easy_perform(session);
   curl_status += curl_easy_getinfo(session, CURLINFO_RESPONSE_CODE,
                  &curl_http_code);
+
+  /* TODO group check */
+  if (group)
+	  syslog(LOG_AUTHPRIV|LOG_WARNING, __FILE__ ": plugin does not support restauth group check yet!");
 
   if (curl_status == CURLE_OK && curl_http_code >= 200 && curl_http_code < 300)
     ret = 0; /* success */
@@ -97,33 +133,67 @@ cleanup:
   return ret;
 }
 
+static const char *string_prefix_match(const char *s, const char *prefix) {
+	const char *res = strstr(s, prefix);
+	if (!res || res != s)
+		return res;
+
+	return s+strlen(prefix);
+}
+
 PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t *pamh, int flags,
     int argc, const char *argv[])
 {
-    const struct pam_message *msgp;
-    struct pam_response *resp;
-
     const char *user;
     char *password;
     int pam_err, retry;
-    const char *base_url;
 
-    /* check url */
-    if (argc > 0 && *argv[0])
-      base_url = argv[0];
-    else
-      /* base url not specified */
-      return PAM_AUTHINFO_UNAVAIL;
+    const char *url = NULL;
+    const char *service_user = NULL;
+    const char *service_password = NULL;
+    const char *group = NULL;
+    int validate_certificate = 0;
+
+    /* parse all parameters */
+    {
+    	int i = 0;
+    	while (i < argc) {
+    		const char *val;
+
+    		if ((val = string_prefix_match(argv[i], "url=")) != NULL)
+    			url = val;
+    		else if ((val = string_prefix_match(argv[i], "service_user=")) != NULL)
+    			service_user = val;
+    		else if ((val = string_prefix_match(argv[i], "service_password=")) != NULL)
+    		    service_password = val;
+    		else if ((val = string_prefix_match(argv[i], "group=")) != NULL)
+    		    group = val;
+    		else if ((val = string_prefix_match(argv[i], "validate_certificate=")) != NULL)
+    		    validate_certificate = !!strcmp(val, "no"); /* no = 0, everything else = 1 */
+
+    		i++;
+    	}
+    }
+
+    /* complain about missing arguments, return error */
+    if (!url || !(*url))
+    	syslog(LOG_AUTHPRIV|LOG_ERR, __FILE__": missing or empty required argument 'url'");
+    if (!service_user)
+    	syslog(LOG_AUTHPRIV|LOG_ERR, __FILE__": missing required argument 'service_user'");
+    if (!service_password)
+    	syslog(LOG_AUTHPRIV|LOG_ERR, __FILE__": missing required argument 'service_password'");
+
+    if (!url || !(*url) || !service_user || !service_password)
+    	return PAM_AUTHINFO_UNAVAIL;
 
     /* get user */
     if ((pam_err = pam_get_user(pamh, &user, NULL)) != PAM_SUCCESS)
         return (pam_err);
 
-    /* get password - TODO why is this here? */
+    /* get password - TODO why is this retry loop here? */
     for (retry = 0; retry < 3; retry++) {
-        pam_err = pam_get_authtok(pamh, PAM_AUTHTOK,
-            (const char **)&password, NULL);
+        pam_err = pam_get_authtok(pamh, PAM_AUTHTOK, (const char **)&password, NULL);
 
         if (pam_err == PAM_SUCCESS)
             break;
@@ -132,10 +202,11 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
         return (PAM_AUTH_ERR);
 
     /* compare passwords */
-    if (pam_restauth_check(base_url, user, password)) {
+    if (pam_restauth_check(url, service_user, service_password,
+    		group, validate_certificate, user, password)) {
       /* wait a bit */
       sleep(2);
-      pam_err = PAM_AUTH_ERR;
+      pam_err = PAM_AUTH_ERR; // TODO AUTHINFO_UNAVAIL (on hardware failure)
     }
     else {
       pam_err = PAM_SUCCESS;
