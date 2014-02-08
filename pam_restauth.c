@@ -65,6 +65,32 @@ static char* url_escape(const char *str)
     return escaped;
 }
 
+/* Helper to init / reset a CURL session */
+static void pam_restauth_curl_session_init(CURL *session, const char *url,
+        const char *service_user, const char *service_password,
+        int validate_certificate, const char *post_data) {
+    curl_easy_reset(session);
+
+    curl_easy_setopt(session, CURLOPT_NETRC, CURL_NETRC_IGNORED);
+    curl_easy_setopt(session, CURLOPT_NOSIGNAL, 1L);
+
+    curl_easy_setopt(session, CURLOPT_USERNAME, service_user);
+    curl_easy_setopt(session, CURLOPT_PASSWORD, service_password);
+
+    if (!validate_certificate)
+        curl_easy_setopt(session, CURLOPT_SSL_VERIFYPEER, 0);
+
+    if (post_data) {
+        curl_easy_setopt(session, CURLOPT_POST, 1L);
+        curl_easy_setopt(session, CURLOPT_POSTFIELDS, post_data);
+    }
+    else {
+        curl_easy_setopt(session, CURLOPT_HTTPGET, 1L);
+    }
+
+    curl_easy_setopt(session, CURLOPT_URL, url);
+}
+
 /* RESTAuth request dispatcher */
 static int pam_restauth_check(
         const char *base_url,
@@ -95,33 +121,52 @@ static int pam_restauth_check(
     sprintf(post_data, "password=%s", escaped_password);
 
     /* set up CURL request */
-    curl_easy_setopt(session, CURLOPT_NETRC, CURL_NETRC_IGNORED);
-    curl_easy_setopt(session, CURLOPT_NOSIGNAL, 1L);
-
-    curl_easy_setopt(session, CURLOPT_USERNAME, service_user);
-    curl_easy_setopt(session, CURLOPT_PASSWORD, service_password);
-
-    if (!validate_certificate)
-        curl_easy_setopt(session, CURLOPT_SSL_VERIFYPEER, 0);
-
-    curl_easy_setopt(session, CURLOPT_POST, 1L);
-    curl_easy_setopt(session, CURLOPT_POSTFIELDS, post_data);
-
-    curl_easy_setopt(session, CURLOPT_URL, url);
+    pam_restauth_curl_session_init(session, url,
+                                   service_user, service_password,
+                                   validate_certificate, post_data);
 
     /* perform request */
     int curl_http_code, curl_status = curl_easy_perform(session);
     curl_status += curl_easy_getinfo(session, CURLINFO_RESPONSE_CODE,
                                      &curl_http_code);
 
-    /* TODO group check */
-    if (group)
-        syslog(LOG_AUTHPRIV|LOG_WARNING, __FILE__ ": plugin does not support restauth group check yet!");
+    if (curl_status == CURLE_OK && curl_http_code >= 200 && curl_http_code < 300) {
+        /* success. perform group check if a group is specified */
+        if (group) {
+            /* create group URL */
+            char *escaped_group = url_escape(group);
+            char *group_url = malloc(strlen(base_url)+strlen("/groups/")+strlen(escaped_group)+strlen("/users/")+strlen(escaped_user)+1);
+            sprintf(group_url, "%s%sgroups/%s/users/%s/", base_url,
+                    *(base_url+strlen(base_url)-1) == '/' ? "":"/",
+                    escaped_group, escaped_user);
 
-    if (curl_status == CURLE_OK && curl_http_code >= 200 && curl_http_code < 300)
-        ret = 0; /* success */
-    else
+            /* set up CURL request again and perform call */
+            pam_restauth_curl_session_init(session, group_url,
+                                           service_user, service_password,
+                                           validate_certificate, NULL);
+
+            curl_status = curl_easy_perform(session);
+            curl_status += curl_easy_getinfo(session, CURLINFO_RESPONSE_CODE,
+                                             &curl_http_code);
+
+            if (curl_status == CURLE_OK && curl_http_code >= 200 && curl_http_code < 300) {
+                ret = 0; /* success */
+            }
+            else {
+                ret = -1; /* failure */
+                syslog(LOG_AUTHPRIV|LOG_NOTICE, __FILE__": user `%s' failed RESTAuth check for group `%s'", escaped_user, escaped_group);
+            }
+
+            if (escaped_group) free(escaped_group);
+            if (group_url) free(group_url);
+        }
+        else {
+            ret = 0; /* success */
+        }
+    }
+    else {
         ret = -1; /* failure */
+    }
 
 cleanup:
     if (session) curl_easy_cleanup(session);
