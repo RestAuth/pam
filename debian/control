@@ -9,7 +9,7 @@ Vcs-Browser: https://git.fsinf.at/restauth/pam
 Vcs-Git: https://git.git.fsinf.at/restauth/pam.git
 
 Package: libpam-restauth
-Architecture: all
+Architecture: any
 Multi-Arch: 
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends}, ${misc:Depends},
