@@ -1,10 +1,10 @@
 Format: http://dep.debian.net/deps/dep5/
 Upstream-Name: pam-restauth
-Upstream-Contact: Mihai Gethe <mihai@restauth.net>
+Upstream-Contact: Mihai Gethe <viper@restauth.net>
 Source: https://git.fsinf.at/restauth/pam
 
 Files: *
-Copyright: Copyright (c) 2011, Mihai Gethe <mihai@restauth.net>
+Copyright: Copyright (c) 2011, Mihai Gethe <viper@restauth.net>
 License: GPL-3+
 
 Files: debian/*
