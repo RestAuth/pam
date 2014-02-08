@@ -1,0 +1,5 @@
+libpam-restauth (0.6.0-1) unstable; urgency=low
+
+  * Initial version.
+
+ -- Mathias Ertl <mati@restauth.net>  Sat, 08 Feb 2014 14:36:31 +0100

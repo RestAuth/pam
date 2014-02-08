@@ -1,0 +1,15 @@
+Source: libpam-restauth
+Section: misc
+Priority: extra
+Maintainer: Mathias Ertl <mati@restauth.net>
+Build-Depends: debhelper (>= 9)
+Standards-Version: 3.9.5
+Homepage: https://git.fsinf.at/restauth/pam
+Vcs-Browser: https://git.fsinf.at/restauth/pam
+Vcs-Git: https://git.git.fsinf.at/restauth/pam.git
+
+Package: libpam-restauth
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends},
+Description: PAM module for authentication based on RestAuth
+ Use the RestAuth protocol for authentication.
