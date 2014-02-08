@@ -5,7 +5,7 @@ DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 %:
 	dh $@
 
-override_dh_auto_make:
+override_dh_auto_build:
 	make -f Makefile.plain
 
 override_dh_auto_configure:
