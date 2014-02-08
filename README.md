@@ -6,8 +6,8 @@ This is a PAM authentication plugin for [RestAuth](https://restauth.net).
 
 Run:
 
-    $ make
-    # make install
+    $ make -f Makefile.plain
+    # make -f Makefile.plain install
 
 to compile `pam_restauth.so` and copy it to `/lib/security/`, where PAM modules reside by default.
 
