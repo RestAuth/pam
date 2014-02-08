@@ -10,6 +10,7 @@ Vcs-Git: https://git.git.fsinf.at/restauth/pam.git
 
 Package: libpam-restauth
 Architecture: all
+Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends}, ${misc:Depends},
 Description: PAM module for authentication based on RestAuth
  Use the RestAuth protocol for authentication.
