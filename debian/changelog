@@ -1,3 +1,9 @@
+libpam-restauth (0.6.1-1) unstable; urgency=low
+
+  * New release, adds group support.
+
+ -- Mathias Ertl <mati@restauth.net>  Mon, 10 Feb 2014 00:34:38 +0100
+
 libpam-restauth (0.6.0-1) unstable; urgency=low
 
   * Initial version.
