@@ -198,6 +198,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
     const char *service_user = NULL;
     const char *service_password = NULL;
     const char *group = NULL;
+    const char *domain = NULL;
     int validate_certificate = 0;
 
     /* parse all parameters */
@@ -216,6 +217,8 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
                 group = val;
             else if ((val = string_prefix_match(argv[i], "validate_certificate=")) != NULL)
                 validate_certificate = !!strcmp(val, "no"); /* no = 0, everything else = 1 */
+            else if ((val = string_prefix_match(argv[i], "domain=")) != NULL)
+                domain = val;
 
             i++;
         }
@@ -246,6 +249,22 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
     if (pam_err != PAM_SUCCESS)
         return (PAM_AUTH_ERR);
 
+    if (domain != NULL) {
+        size_t user_len = strlen(user);
+        size_t domain_len = strlen(domain);
+        size_t username_len = user_len - domain_len;
+
+        if (domain_len > user_len)
+            return PAM_AUTH_ERR;
+        /* check if the last part of the loginname is the specified domain */
+        if (strncmp(user+username_len, domain, domain_len) == 0) {
+            /* strip the domain from the username */
+            user[username_len] = '\0';
+        } else {
+            return PAM_AUTH_ERR;
+        }
+    }
+
     /* compare passwords */
     if (pam_restauth_check(url, service_user, service_password,
                            group, validate_certificate, user, password)) {
@@ -256,7 +275,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
     else {
         pam_err = PAM_SUCCESS;
     }
-    
+
     return (pam_err);
 }
 
