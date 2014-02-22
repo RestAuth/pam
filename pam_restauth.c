@@ -199,6 +199,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
     const char *service_password = NULL;
     const char *group = NULL;
     const char *domain = NULL;
+    char *stripped_username;
     int validate_certificate = 0;
 
     /* parse all parameters */
@@ -254,26 +255,39 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
         size_t domain_len = strlen(domain);
         size_t username_len = user_len - domain_len;
 
-        if (domain_len > user_len)
-            return PAM_AUTH_ERR;
-        /* check if the last part of the loginname is the specified domain */
-        if (strncmp(user+username_len, domain, domain_len) == 0) {
-            /* strip the domain from the username */
-            user[username_len] = '\0';
+        if (user_len >= domain_len) {
+            /* check if the last part of the loginname is the specified domain */
+            if (strncmp(user+username_len, domain, domain_len) == 0) {
+                /* strip the domain from the username */
+                stripped_username = malloc(username_len + 1);
+                strncpy(stripped_username, user, username_len);
+                stripped_username[username_len] = '\0';
+                /* compare passwords */
+                if (pam_restauth_check(url, service_user, service_password,
+                                    group, validate_certificate, stripped_username, password)) {
+                    /* wait a bit */
+                    sleep(2);
+                    pam_err = PAM_AUTH_ERR; // TODO AUTHINFO_UNAVAIL (on hardware failure)
+                } else {
+                    pam_err = PAM_SUCCESS;
+                }
+            } else {
+                /* wrong domain is given */
+                pam_err = PAM_AUTH_ERR;
+            }
         } else {
-            return PAM_AUTH_ERR;
+            pam_err = PAM_AUTH_ERR;
         }
-    }
-
-    /* compare passwords */
-    if (pam_restauth_check(url, service_user, service_password,
-                           group, validate_certificate, user, password)) {
-        /* wait a bit */
-        sleep(2);
-        pam_err = PAM_AUTH_ERR; // TODO AUTHINFO_UNAVAIL (on hardware failure)
-    }
-    else {
-        pam_err = PAM_SUCCESS;
+    } else {
+        /* compare passwords */
+        if (pam_restauth_check(url, service_user, service_password,
+                            group, validate_certificate, user, password)) {
+            /* wait a bit */
+            sleep(2);
+            pam_err = PAM_AUTH_ERR; // TODO AUTHINFO_UNAVAIL (on hardware failure)
+        } else {
+            pam_err = PAM_SUCCESS;
+        }
     }
 
     return (pam_err);
