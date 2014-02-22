@@ -186,6 +186,49 @@ static const char *string_prefix_match(const char *s, const char *prefix) {
     return s+strlen(prefix);
 }
 
+/**
+ * Returns a copy of `user' with `domain' stripped if `user' ends in domain, or NULL otherwise.
+ * Returns a copy of the passed `user' if domain == NULL.
+ *
+ * If the result is not NULL, you will have to take care of freeing it.
+ */
+static char *strip_domain(const char *user, const char *domain) {
+    char *stripped_username;
+    size_t user_len;
+    size_t domain_len;
+    size_t username_len;
+    
+    /* basic checks */
+    if (user == NULL)
+        return NULL;
+    
+    if (domain == NULL) {
+        stripped_username = malloc(strlen(user));
+        return stripped_username;
+    }
+    
+    user_len = strlen(user);
+    domain_len = strlen(domain);
+    username_len = user_len - domain_len;
+
+    if (user_len < domain_len)
+      return NULL; /* username cannot end with domain, abort */
+    
+    /* check if the last part of the loginname is the specified domain */
+    if (strncmp(user+username_len, domain, domain_len) == 0) {
+        /* strip the domain from the username */
+        stripped_username = malloc(username_len + 1);
+        strncpy(stripped_username, user, username_len);
+        stripped_username[username_len] = '\0';
+        
+        /* return the username */
+        return stripped_username;
+    } else {
+        /* username does not end with domain */
+        return NULL;
+    }
+}
+
 PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t *pamh, int flags,
                     int argc, const char *argv[])
@@ -199,8 +242,8 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
     const char *service_password = NULL;
     const char *group = NULL;
     const char *domain = NULL;
-    char *stripped_username;
     int validate_certificate = 0;
+    char *stripped_user = NULL;
 
     /* parse all parameters */
     {
@@ -243,52 +286,26 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
     /* get password - TODO why is this retry loop here? */
     for (retry = 0; retry < 3; retry++) {
         pam_err = pam_get_authtok(pamh, PAM_AUTHTOK, (const char **)&password, NULL);
-
         if (pam_err == PAM_SUCCESS)
             break;
     }
     if (pam_err != PAM_SUCCESS)
         return (PAM_AUTH_ERR);
 
-    if (domain != NULL) {
-        size_t user_len = strlen(user);
-        size_t domain_len = strlen(domain);
-        size_t username_len = user_len - domain_len;
-
-        if (user_len >= domain_len) {
-            /* check if the last part of the loginname is the specified domain */
-            if (strncmp(user+username_len, domain, domain_len) == 0) {
-                /* strip the domain from the username */
-                stripped_username = malloc(username_len + 1);
-                strncpy(stripped_username, user, username_len);
-                stripped_username[username_len] = '\0';
-                /* compare passwords */
-                if (pam_restauth_check(url, service_user, service_password,
-                                    group, validate_certificate, stripped_username, password)) {
-                    /* wait a bit */
-                    sleep(2);
-                    pam_err = PAM_AUTH_ERR; // TODO AUTHINFO_UNAVAIL (on hardware failure)
-                } else {
-                    pam_err = PAM_SUCCESS;
-                }
-            } else {
-                /* wrong domain is given */
-                pam_err = PAM_AUTH_ERR;
-            }
-        } else {
-            pam_err = PAM_AUTH_ERR;
-        }
+    /* strip domain & compare passwords */
+    stripped_user = strip_domain(user, domain);
+    
+    if (stripped_user == NULL || pam_restauth_check(url, service_user, service_password,
+                        group, validate_certificate, user, password)) {
+        /* wait a bit */
+        sleep(2);
+        pam_err = PAM_AUTH_ERR; // TODO AUTHINFO_UNAVAIL (on hardware failure)
     } else {
-        /* compare passwords */
-        if (pam_restauth_check(url, service_user, service_password,
-                            group, validate_certificate, user, password)) {
-            /* wait a bit */
-            sleep(2);
-            pam_err = PAM_AUTH_ERR; // TODO AUTHINFO_UNAVAIL (on hardware failure)
-        } else {
-            pam_err = PAM_SUCCESS;
-        }
+        pam_err = PAM_SUCCESS;
     }
+    
+    if (stripped_user)
+        free(stripped_user);
 
     return (pam_err);
 }
