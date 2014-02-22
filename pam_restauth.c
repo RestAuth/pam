@@ -190,7 +190,7 @@ PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t *pamh, int flags,
                     int argc, const char *argv[])
 {
-    char *user;
+    const char *user;
     char *password;
     int pam_err, retry;
 
