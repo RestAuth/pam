@@ -73,6 +73,7 @@ static void pam_restauth_curl_session_init(CURL *session, const char *url,
 
     curl_easy_setopt(session, CURLOPT_NETRC, CURL_NETRC_IGNORED);
     curl_easy_setopt(session, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(session, CURLOPT_WILDCARDMATCH, 0);
 
     curl_easy_setopt(session, CURLOPT_USERNAME, service_user);
     curl_easy_setopt(session, CURLOPT_PASSWORD, service_password);
@@ -297,7 +298,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags,
     stripped_user = strip_domain(user, domain);
     
     if (stripped_user == NULL || pam_restauth_check(url, service_user, service_password,
-                        group, validate_certificate, user, password)) {
+                        group, validate_certificate, stripped_user, password)) {
         /* wait a bit */
         sleep(2);
         pam_err = PAM_AUTH_ERR; // TODO AUTHINFO_UNAVAIL (on hardware failure)
