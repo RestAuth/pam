@@ -42,8 +42,8 @@ Remember that line order in PAM configuration files is important. For the differ
 # Testing
 
 To run the unit tests (found in `tests/`), you will first need to build and install the PAM plugin on your system as outlined above. Additionally:
-* Make sure a RestAuth test server is running (by executing `python setup.py testserver` in the RestAuthServer directory). Double-check that the server is listening on http://[::1]:8000/ and has a service user configured with username `vowi` and password `vowi` (this is currently the default).
-* Create the PAM service configurations in `/etc/pam.d/` in as outlined in `tests/main.py`. Unfortunately, this cannot be done by the script itself (yet) as it requires root privileges.
+* Make sure a RestAuth test server is running (by executing `python setup.py testserver` in the RestAuthServer directory). Double-check that the server is listening on `http://[::1]:8000/` and has a service user configured with username `vowi` and password `vowi` (this is currently the default).
+* Create the PAM service configurations in `/etc/pam.d/` as outlined in `tests/main.py`. Unfortunately, this cannot be done by the script itself (yet) as it requires root privileges.
 * Make sure PyPAM and the RestAuthClient Python library are installed. You can set up a virtualenv in tests/ and run `pip install -r requirements.txt` there.
 * Run `./main.py` in `tests/`. All tests should pass.
 
