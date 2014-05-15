@@ -21,7 +21,7 @@ At the moment, the plugin supports the following options:
 * `service_password=<password>` (required) The password used to authenticate as a [service](https://restauth.net/wiki/Specification/0.6#Service_authentication).
 * `group=<group name>` (optional) A group the user has to belong to in order for authentication to succeed.
 * `validate_certificate=yes/no` (optional, defaults to yes) Do (not) attempt to validate the SSL certificate of the RestAuth provider. If the connection to the server is done via SSL and, for some reason, you don't want to check the certificate, set this to no. Ideally, you should create a self-signed certificate and trust it on the RestAuth server instead of using this option, in case you don't have access to an already-trusted CA. Otherwise, you won't be able to guarantee the authenticity of the server and you may be the victim of a Man-in-the-middle attack. In other words, **never use this option**!
-* `domain=<domain>` (optional, defaults to NULL) strips this domain from the given input and validates with the given user without this domain.
+* `domain=<domain>` (optional, defaults to NULL) strips this domain from the given input and validates with the given user without this domain. The entire suffix to be stripped must be specified, including e.g. prepended `@` or `.` characters. If the username does not end with the specified domain, authentication will fail.
 
 The options can be specified in any order. If you need to use spaces in options (e.g. for usernames with spaces), surround the affected option with square brackets. See the manual for `pam.d(5)` for specifics.
 
@@ -38,6 +38,14 @@ Your system's PAM configuration can vary by distribution. You will usually find 
         auth required pam_restauth.so url=http://localhost:8000/ service_user=vowi service_password=vowi
 
 Remember that line order in PAM configuration files is important. For the difference between "`sufficient`" and "`required`", also best read the `pam.d(5)` manual page.
+
+# Testing
+
+To run the unit tests (found in `tests/`), you will first need to build and install the PAM plugin on your system as outlined above. Additionally:
+* Make sure a RestAuth test server is running (by executing `python setup.py testserver` in the RestAuthServer directory). Double-check that the server is listening on `http://[::1]:8000/` and has a service user configured with username `vowi` and password `vowi` (this is currently the default).
+* Create the PAM service configurations in `/etc/pam.d/` as outlined in `tests/main.py`. Unfortunately, this cannot be done by the script itself (yet) as it requires root privileges.
+* Make sure PyPAM and the RestAuthClient Python library are installed. You can set up a virtualenv in tests/ and run `pip install -r requirements.txt` there.
+* Run `./main.py` in `tests/`. All tests should pass.
 
 # License
 
