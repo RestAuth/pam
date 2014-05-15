@@ -6,6 +6,8 @@ CFLAGS:=$(shell dpkg-buildflags --get CFLAGS)
 CXXFLAGS:=$(shell dpkg-buildflags --get CXXFLAGS)
 LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
 
+LDFLAGS += -shared -fPIC
+
 %:
 	dh $@
 
