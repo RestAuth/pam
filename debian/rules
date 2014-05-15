@@ -10,7 +10,7 @@ LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
 	dh $@
 
 pam_restauth.so: pam_restauth.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o pam_restauth.so pam_restauth.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o pam_restauth.so pam_restauth.c -lcurl -lpam
 
 override_dh_auto_build: pam_restauth.so
 
