@@ -127,7 +127,8 @@ static int pam_restauth_check(
                                    validate_certificate, post_data);
 
     /* perform request */
-    int curl_http_code, curl_status = curl_easy_perform(session);
+    long curl_http_code = 0;
+    int curl_status = curl_easy_perform(session);
     curl_status += curl_easy_getinfo(session, CURLINFO_RESPONSE_CODE,
                                      &curl_http_code);
 
