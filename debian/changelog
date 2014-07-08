@@ -1,3 +1,9 @@
+libpam-restauth (0.6.3-1) unstable; urgency=low
+
+  * Version bump from upstream.
+
+ -- Mathias Ertl <mati@restauth.net>  Tue, 08 Jul 2014 17:49:27 +0200
+
 libpam-restauth (0.6.2-1) unstable; urgency=low
 
   * New release, adds multi-domain support.
