@@ -204,13 +204,15 @@ static char *strip_domain(const char *user, const char *domain) {
     if (user == NULL)
         return NULL;
     
+    user_len = strlen(user);
+
     if (domain == NULL) {
-        stripped_username = malloc(strlen(user)+1);
-        strncpy(stripped_username, user, strlen(user));
+        stripped_username = malloc(user_len+1);
+        strncpy(stripped_username, user, user_len);
+        stripped_username[user_len] = '\0';
         return stripped_username;
     }
     
-    user_len = strlen(user);
     domain_len = strlen(domain);
     username_len = user_len - domain_len;
 
