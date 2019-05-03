@@ -1,3 +1,9 @@
+libpam-restauth (0.6.4-1) unstable; urgency=low
+
+  * Fix non-terminated string
+
+ -- David Kaufmann <astra@restauth.net>  Fri, 03 May 2019 22:08:27 +0200
+
 libpam-restauth (0.6.3-1) unstable; urgency=low
 
   * Version bump from upstream.
